@@ -1,0 +1,22 @@
+# Visual Studio artifacts
+.vs/
+x64/
+Debug/
+Release/
+*.user
+*.aps
+*.suo
+*.opensdf
+*.sdf
+*.cache
+*.tlog
+*.obj
+*.pdb
+*.ilk
+*.exe
+*.iobj
+*.ipdb
+*.log
+
+# Intermediate directories (if any custom ones)
+EasterSt*/
