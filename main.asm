@@ -20,8 +20,9 @@ main proc
     ; Stack frame Design:
     ;   [RSP+00] Shadow Space (32 bytes) - Reused for calls
     ;   [RSP+20] Arg 5 Space (8 bytes)   - Needed for WriteConsoleA
-    ;   [RSP+28] Output Buffer (128 bytes)
-    ;   [RSP+A8] Scratch / Safety padding (16 bytes)
+    ;   [RSP+28] Output Buffer (128 bytes) - [RSP+28] to [RSP+A7]
+    ;   [RSP+A8] argc (4 bytes, int)
+    ;   [RSP+AC] Scratch / Safety padding (12 bytes)
     ;   [RSP+B8] Return Address (Pushed by Call)
     ;
     ; Allocation needed: 184 bytes (0xB8)
@@ -35,22 +36,19 @@ main proc
     ; --------------------------------------------------------
     ; Parse command-line year
     ; --------------------------------------------------------
-    call    GetCommandLineW  ; Use Wide version
-    mov     rcx, rax         ; lpCmdLine
-    lea     rdx, [rsp+28h+80h] ; pNumArgs area (Offset A8h).
-                             ; With 0B8h allocation, A8h is valid stack access.
-    lea     rdx, [rsp+90h]   ; Temp storage.
-                             
-    lea     rdx, [rsp+0A0h]  ; Address for pNumArgs
-    call    CommandLineToArgvW
+    call    GetCommandLineW          ; RAX = lpCmdLine
+    mov     rcx, rax                 ; RCX = lpCmdLine
 
-    mov     r8, rax            ; argv**
-    mov     r9d, [rsp+0A0h]    ; argc (read from stack)
+    lea     rdx, [rsp+0A8h]          ; RDX = &argc (int in scratch area)
+    call    CommandLineToArgvW       ; RAX = argv**, [rsp+0A8h] = argc
+
+    mov     r8, rax                  ; R8  = argv**
+    mov     r9d, [rsp+0A8h]          ; R9D = argc
 
     cmp     r9d, 1
     jle     use_default_year
 
-    mov     rcx, [r8+8]        ; argv[1] (wide string)
+    mov     rcx, [r8+8]              ; RCX = argv[1] (wide string)
     call    WideToInt
     mov     r12d, eax
     jmp     year_ready
