@@ -11,8 +11,7 @@ include common.inc
 
 EasterDate proc
     ; -------------------------------------------
-    ; Prologue: Preserve Non-Volatile Registers
-    ; Required by Windows x64 ABI because we use RBX, R12-R15
+    ; Prologue: preserve non-volatile state
     ; -------------------------------------------
     push    rbx
     push    r12
@@ -20,45 +19,50 @@ EasterDate proc
     push    r14
     push    r15
 
+    ; -------------------------------------------
+    ; Compute the Gregorian Easter state
+    ; -------------------------------------------
+
     ; a = year % 19
     mov     eax, ecx
-    cdq
+    xor     edx, edx
     mov     ebx, 19
     div     ebx
     mov     r8d, edx                ; a
 
     ; b = year / 100
+    ; c = year % 100
     mov     eax, ecx
-    mov     ebx, 100
     xor     edx, edx
+    mov     ebx, 100
     div     ebx
     mov     r9d, eax                ; b
-    mov     r10d, edx               ; c = year % 100
+    mov     r10d, edx               ; c
 
     ; d = b / 4
     mov     eax, r9d
-    shr     eax, 2                  ; Divide by 4 (2 bits right)
+    shr     eax, 2
     mov     r11d, eax               ; d
 
     ; e = b % 4
     mov     eax, r9d
-    and     eax, 3                  ; Modulo 4 (keep last 2 bits)
+    and     eax, 3
     mov     r12d, eax               ; e
 
     ; f = (b + 8) / 25
     mov     eax, r9d
     add     eax, 8
-    mov     ebx, 25
     xor     edx, edx
+    mov     ebx, 25
     div     ebx
     mov     r13d, eax               ; f
 
     ; g = (b - f + 1) / 3
     mov     eax, r9d
     sub     eax, r13d
-    add     eax, 1
-    mov     ebx, 3
+    inc     eax
     xor     edx, edx
+    mov     ebx, 3
     div     ebx
     mov     r14d, eax               ; g
 
@@ -69,69 +73,67 @@ EasterDate proc
     sub     eax, r11d
     sub     eax, r14d
     add     eax, 15
+    xor     edx, edx
     mov     ebx, 30
-    cdq
     div     ebx
     mov     r15d, edx               ; h
 
+    ; f is no longer needed, so R13D becomes i.
     ; i = c / 4
     mov     eax, r10d
-    shr     eax, 2                  ; Divide by 4
-    mov     r8d, eax                ; i
+    shr     eax, 2
+    mov     r13d, eax               ; i
 
+    ; b is no longer needed, so R9D becomes k.
     ; k = c % 4
     mov     eax, r10d
-    and     eax, 3                  ; Modulo 4
+    and     eax, 3
     mov     r9d, eax                ; k
 
     ; l = (32 + 2e + 2i - h - k) % 7
     mov     eax, 32
     add     eax, r12d
-    add     eax, r12d               ; 2e
-    add     eax, r8d
-    add     eax, r8d                ; 2i
-    sub     eax, r15d               ; -h
-    sub     eax, r9d                ; -k
+    add     eax, r12d
+    add     eax, r13d
+    add     eax, r13d
+    sub     eax, r15d
+    sub     eax, r9d
+    xor     edx, edx
     mov     ebx, 7
-    cdq
     div     ebx
     mov     r10d, edx               ; l
 
     ; m = (a + 11h + 22l) / 451
-    ; Broken logic fixed here:
-    ; scale factors *11 and *22 must be calculated via IMUL first.
-    
-    imul    eax, r15d, 11           ; eax = 11 * h
-    imul    ebx, r10d, 22           ; ebx = 22 * l
-    add     eax, ebx                ; eax = 11h + 22l
-    add     eax, r8d                ; eax = a + 11h + 22l
-
-    mov     ebx, 451
+    imul    eax, r15d, 11
+    imul    ebx, r10d, 22
+    add     eax, ebx
+    add     eax, r8d
     xor     edx, edx
+    mov     ebx, 451
     div     ebx
     mov     r11d, eax               ; m
 
-    ; month = (h + l - 7m + 114) / 31
+    ; q = h + l - 7m + 114
     mov     eax, r15d
     add     eax, r10d
-    mov     ebx, r11d
-    imul    ebx, 7
+    imul    ebx, r11d, 7
     sub     eax, ebx
     add     eax, 114
-    mov     ebx, 31
+
+    ; month = q / 31
+    ; day = (q % 31) + 1
     xor     edx, edx
+    mov     ebx, 31
     div     ebx
     mov     ecx, eax                ; month
-
-    ; day = ((h + l - 7m + 114) % 31) + 1
     mov     eax, edx
-    inc     eax                     ; day to EAX
+    inc     eax                     ; day
 
-    ; Weekday placeholder (calculated by Weekday.asm)
-    xor     edx, edx
+    ; Gregorian Easter is always Sunday.
+    xor     edx, edx                ; weekday
 
     ; -------------------------------------------
-    ; Epilogue: Restore Non-Volatile Registers
+    ; Epilogue: restore non-volatile state
     ; -------------------------------------------
     pop     r15
     pop     r14
